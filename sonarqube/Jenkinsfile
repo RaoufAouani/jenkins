@@ -1,15 +1,13 @@
 node {
-    def myGradleContainer = docker.image('gradle:jdk8-alpine')
-    myGradleContainer.pull()
+    def myGradleContainer = 'gradle:jdk8-alpine'
+    sh "docker pull ${myGradleContainer}"
 
     stage('prep') {
-        git url: 'https://github.com/RaoufAouani/jenkins'  // Update if needed
+        git url: 'https://github.com/RaoufAouani/jenkins'
     }
 
     stage('build') {
-        myGradleContainer.inside("-v ${env.HOME}/.gradle:/home/gradle/.gradle") {
-            sh 'cd complete && /opt/gradle/bin/gradle build'
-        }
+        sh "docker run --rm -v $PWD:/app -w /app ${myGradleContainer} /opt/gradle/bin/gradle build"
     }
 
     stage('wait-for-sonarqube') {
@@ -17,9 +15,10 @@ node {
     }
 
     stage('sonar-scanner') {
-        def sonarqubeScannerHome = tool name: 'sonar', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+        def sonarHome = tool name: 'sonar', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
         withCredentials([string(credentialsId: 'sonar', variable: 'sonarLogin')]) {
-            sh "${sonarqubeScannerHome}/bin/sonar-scanner -e \
+            sh """
+                ${sonarHome}/bin/sonar-scanner -e \
                 -Dsonar.host.url=http://sonarqube:9000 \
                 -Dsonar.login=${sonarLogin} \
                 -Dsonar.projectName=gs-gradle \
@@ -28,11 +27,13 @@ node {
                 -Dsonar.sources=complete/src/main/ \
                 -Dsonar.tests=complete/src/test/ \
                 -Dsonar.language=java \
-                -Dsonar.java.binaries=."
+                -Dsonar.java.binaries=.
+            """
         }
     }
 
     stage('cleanup') {
-        sh "docker stop \$(docker ps -q --filter ancestor=gradle:jdk8-alpine) || true"
+        sh "docker stop \$(docker ps -q --filter ancestor=${myGradleContainer}) || true"
     }
 }
+
