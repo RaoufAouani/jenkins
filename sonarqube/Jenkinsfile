@@ -12,24 +12,26 @@ node {
     stage('sonar-scanner') {
         def sonarqubeScannerHome = tool name: 'sonar', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
         withCredentials([string(credentialsId: 'sonar', variable: 'sonarLogin')]) {
-            sh "${sonarqubeScannerHome}/bin/sonar-scanner -e \
+            sh """
+                ${sonarqubeScannerHome}/bin/sonar-scanner -e \
                 -Dsonar.host.url=http://sonarqube:9000 \
-                -Dsonar.login=${sonarLogin} \
+                -Dsonar.login=\${sonarLogin} \
                 -Dsonar.projectName=gs-gradle \
-                -Dsonar.projectVersion=${env.BUILD_NUMBER} \
+                -Dsonar.projectVersion=\${env.BUILD_NUMBER} \
                 -Dsonar.projectKey=GS \
                 -Dsonar.sources=complete/src/main/ \
                 -Dsonar.tests=complete/src/test/ \
                 -Dsonar.language=java \
-                -Dsonar.java.binaries=."
+                -Dsonar.java.binaries=.
+            """
         }
     }
 
     stage('cleanup') {
         sh """
-            RUNNING_CONTAINERS=$(docker ps -q --filter ancestor=${GRADLE_IMAGE})
-            if [ ! -z "$RUNNING_CONTAINERS" ]; then
-                docker stop $RUNNING_CONTAINERS || true
+            RUNNING_CONTAINERS=\$(docker ps -q --filter ancestor=${GRADLE_IMAGE})
+            if [ ! -z \"\$RUNNING_CONTAINERS\" ]; then
+                docker stop \$RUNNING_CONTAINERS || true
             fi
         """
     }
